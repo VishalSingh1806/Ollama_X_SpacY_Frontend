@@ -1,22 +1,19 @@
-# Ignore Python bytecode
+# Ignore Python virtual environments
+*/new_venv/
+
+# Ignore temporary files
+*.pyc
 __pycache__/
-*.py[cod]
+*.db-shm
+*.db-wal
 
-# Ignore virtual environment
-venv/
-
-# Ignore config files and secrets
-*.env
-.DS_Store
-
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Ignore logs and data files
-*.log
-*.csv
-*.db
-
-# Ignore IDE and editor settings
+# Ignore IDE-specific files
 .vscode/
 .idea/
+
+# Ignore log files
+*.log
+
+# Ignore other temporary or build artifacts
+*.tmp
+*.swp
