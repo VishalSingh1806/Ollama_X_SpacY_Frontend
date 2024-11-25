@@ -1,120 +1,181 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import sqlite3
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-import spacy
-import ollama
+from sentence_transformers import SentenceTransformer
+import logging
 
+# Initialize FastAPI app
 app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (adjust as needed)
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
 )
 
-DB_PATH = r"D:\Ollama X SpacY\knowledge_base.db"
-SIMILARITY_THRESHOLD = 0.7
-OLLAMA_MODEL = "llama2"
+# Logging
+logging.basicConfig(level=logging.DEBUG)
 
-# Load spaCy model for semantic embeddings
-nlp = spacy.load("en_core_web_md")
+# Load Sentence-BERT model
+try:
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+except Exception as e:
+    raise RuntimeError(f"Failed to load Sentence-BERT model: {e}")
 
-# Predefined intents for greeting and ending
-GREETING_INTENTS = [
-    "hello", "hi", "hey", "good morning", "good afternoon", "howdy", "hi there"
-]
-ENDING_INTENTS = [
-    "thanks", "bye", "goodbye", "that's all", "thank you", "see you later", "catch you later"
-]
+# Constants
+DB_PATH = "D:\Ollama X SpacY\knowledge_base.db"  # SQLite database path
+SIMILARITY_THRESHOLD = 0.7  # Threshold for similarity matching
 
+
+# --- Utility Functions ---
+def connect_db():
+    """Create a connection to the SQLite database."""
+    return sqlite3.connect(DB_PATH)
+
+
+def compute_embedding(text):
+    """Compute embedding using Sentence-BERT."""
+    return model.encode(text).reshape(1, -1)
+
+
+# --- API Endpoints ---
 @app.post("/chat")
 async def chat_endpoint(request: Request):
-    data = await request.json()
-    question = data.get("message", "").strip()
+    """Handle user queries."""
+    try:
+        data = await request.json()
+        question = data.get("message", "").strip()
+        if not question:
+            raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    if not question:
+        # Generate embedding for user query
+        user_embedding = compute_embedding(question)
+
+        # Query database for the best match
+        answer, confidence = query_validated_qa(user_embedding)
+
+        # If no valid match found, search sections as fallback
+        if not answer:
+            related_sections = search_sections(question)
+            if related_sections:
+                return {
+                    "answer": "No direct match found. Here are some related sections:",
+                    "related_sections": related_sections,
+                    "confidence": 0.0,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            else:
+                return {
+                    "answer": "I'm sorry, I couldn't find anything relevant.",
+                    "confidence": 0.0,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+
         return {
-            "answer": "Please provide a valid question.",
-            "source": "none",
-            "confidence": 0.0,
+            "answer": answer,
+            "confidence": confidence,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
+    except Exception as e:
+        logging.error(f"Error in chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    processed_answer, source, confidence = handle_query(question)
-    return {
-        "answer": processed_answer,
-        "source": source,
-        "confidence": float(confidence),  # Convert numpy.float32 to Python float
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
 
-def generate_ollama_answer(context, question):
-    """Generate an answer using Ollama."""
-    prompt = f"Context: {context}\n\nQuestion: {question}\n\nAnswer concisely and realistically."
-    response = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-    return response.get('message', {}).get('content', "Sorry, I couldn't generate a response.")
-
-def query_database(question):
-    """Query the knowledge base for a matching question."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
+@app.post("/add")
+async def add_to_validated_qa(request: Request):
+    """Add a new question-answer pair to the database."""
     try:
-        user_embedding = np.array(nlp(question).vector).reshape(1, -1)
+        data = await request.json()
+        question = data.get("question", "").strip()
+        answer = data.get("answer", "").strip()
+        if not question or not answer:
+            raise HTTPException(
+                status_code=400, detail="Both question and answer are required."
+            )
 
+        embedding = compute_embedding(question).tobytes()
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO ValidatedQA (question, answer, embedding) VALUES (?, ?, ?)",
+            (question, answer, embedding),
+        )
+        conn.commit()
+        conn.close()
+
+        return {"message": "Question-Answer pair added successfully."}
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail="Database Error")
+
+
+@app.get("/list-sections")
+def list_sections():
+    """List all sections available in the database."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, content FROM Sections LIMIT 10;")
+        sections = cursor.fetchall()
+        conn.close()
+
+        return {"sections": [{"id": sec[0], "content": sec[1]} for sec in sections]}
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail="Database Error")
+
+
+@app.get("/search-sections")
+def search_sections(query: str):
+    """Search for terms in the sections table."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, content FROM Sections WHERE content LIKE ? LIMIT 10;",
+            (f"%{query}%",),
+        )
+        results = cursor.fetchall()
+        conn.close()
+
+        return [{"id": row[0], "content": row[1]} for row in results]
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail="Database Error")
+
+
+# --- Helper Functions ---
+def query_validated_qa(user_embedding):
+    """Query the ValidatedQA table for the best match."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
         cursor.execute("SELECT question, answer, embedding FROM ValidatedQA")
         rows = cursor.fetchall()
-
-        if not rows:
-            return None, "none", 0.0
 
         max_similarity = 0.0
         best_answer = None
 
         for db_question, db_answer, db_embedding in rows:
-            db_embedding_array = np.frombuffer(db_embedding, dtype=np.float32).reshape(1, -1)
+            db_embedding_array = np.frombuffer(db_embedding, dtype=np.float32).reshape(
+                1, -1
+            )
             similarity = cosine_similarity(user_embedding, db_embedding_array)[0][0]
-
             if similarity > max_similarity:
                 max_similarity = similarity
                 best_answer = db_answer
 
-        if max_similarity >= SIMILARITY_THRESHOLD:
-            return best_answer, "database", max_similarity
-        else:
-            return None, "none", max_similarity
-    except sqlite3.Error as e:
-        return f"Database error: {str(e)}", "error", 0.0
-    finally:
         conn.close()
 
-def handle_query(question):
-    """Handle a question by querying the database and using Ollama as fallback."""
-    # Handle greetings
-    if question.lower() in GREETING_INTENTS:
-        return "Hello! How can I assist you today?", "greeting", 1.0
-
-    # Handle ending intents
-    if question.lower() in ENDING_INTENTS:
-        return "You're welcome! Have a great day!", "ending", 1.0
-
-    # Query the database
-    db_answer, source, confidence = query_database(question)
-
-    if db_answer and confidence >= SIMILARITY_THRESHOLD:
-        return db_answer, source, confidence
-
-    if db_answer:
-        # Refine low-confidence answers using Ollama
-        refined_answer = generate_ollama_answer(db_answer, question)
-        return refined_answer, "refined (ollama)", confidence
-
-    # Generate a completely new answer if no match is found
-    new_answer = generate_ollama_answer("This is a general knowledge assistant.", question)
-    return new_answer, "ollama", 0.5  # Default confidence for generated answers
+        if max_similarity >= SIMILARITY_THRESHOLD:
+            return best_answer, float(max_similarity)
+        return None, 0.0
+    except sqlite3.Error as e:
+        logging.error(f"Database query error: {e}")
+        return None, 0.0
