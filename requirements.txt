@@ -10,7 +10,7 @@ colorama==0.4.6
 cryptography==43.0.3
 cymem==2.0.8
 Cython==0.29.37
-en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.1.0/en_core_web_md-3.1.0-py3-none-any.whl#sha256=45971f672a6312d493c0703dc4deeddde6e4f81ba98b626c8abf67b4bef720c7
+en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.5.0/en_core_web_md-3.5.0-py3-none-any.whl
 exceptiongroup==1.2.2
 Flask==2.3.3
 gensim==4.3.3
