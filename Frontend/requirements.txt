@@ -54,7 +54,7 @@ srsly==2.4.8
 thinc>=8.1.0
 threadpoolctl==3.5.0
 tqdm==4.67.0
-typer==0.8.0
+typer==0.3.0,<0.10.0
 typing_extensions==4.12.2
 urllib3==2.2.3
 wasabi==0.10.1
