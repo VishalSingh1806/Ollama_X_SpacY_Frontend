@@ -5,7 +5,7 @@ catalogue==2.0.10
 certifi==2024.8.30
 cffi==1.17.1
 charset-normalizer==3.4.0
-click==8.1.7
+click
 colorama==0.4.6
 cryptography==43.0.3
 cymem==2.0.8
@@ -54,7 +54,7 @@ srsly==2.4.8
 thinc>=8.1.0
 threadpoolctl==3.5.0
 tqdm==4.67.0
-typer==0.3.0,<0.10.0
+typer
 typing_extensions==4.12.2
 urllib3==2.2.3
 wasabi==0.10.1
