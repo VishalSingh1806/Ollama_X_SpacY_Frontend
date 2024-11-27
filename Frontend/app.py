@@ -169,7 +169,7 @@ def list_sections():
         return {"sections": [{"id": sec[0], "content": sec[1]} for sec in sections]}
     except sqlite3.Error as e:
         logging.error(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail="Database Error"}
+        raise HTTPException(status_code=500, detail="Database Error")
 
 
 @app.on_event("startup")
