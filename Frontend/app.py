@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import logging
+import os
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -14,9 +15,13 @@ app = FastAPI()
 # Logging setup
 logging.basicConfig(level=logging.DEBUG)
 
+# Directory Paths
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_FILES_DIR = CURRENT_DIR  # Use the current directory for static files (index.html, etc.)
+DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")
+
 # Mount static files (Frontend)
-STATIC_FILES_DIR = "/root/Ollama_X_SpacY_Frontend/Frontend"
-app.mount("/static", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
+app.mount("/", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
 
 # Add CORS middleware
 app.add_middleware(
@@ -35,7 +40,6 @@ except Exception as e:
     raise RuntimeError(f"Failed to load Sentence-BERT model: {e}")
 
 # Constants
-DB_PATH = "/root/Ollama_X_SpacY_Frontend/Frontend/knowledge_base.db"
 SIMILARITY_THRESHOLD = 0.7  # Similarity threshold for question matching
 
 
@@ -180,4 +184,3 @@ async def list_routes():
             print(f"Path: {route.path}, Methods: {route.methods}")
         else:
             print(f"Path: {route.path}, Type: {type(route).__name__}")
-
