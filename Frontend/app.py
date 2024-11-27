@@ -22,7 +22,7 @@ STATIC_FILES_DIR = os.path.join(CURRENT_DIR)  # Directory for static files
 DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")  # Path to SQLite database
 
 # Mount static files under /static
-app.mount("/", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_FILES_DIR), name="static")
 
 # Serve `index.html` for root route
 @app.get("/")
