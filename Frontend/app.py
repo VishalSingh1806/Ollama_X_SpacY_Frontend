@@ -1,18 +1,18 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import sqlite3
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import logging
-from fastapi.staticfiles import StaticFiles
-
-# Mount the static files
-app.mount("/", StaticFiles(directory="/root/Ollama_X_SpacY_Frontend/Frontend", html=True), name="static")
 
 # Initialize FastAPI app
 app = FastAPI()
+
+# Mount static files (frontend)
+app.mount("/", StaticFiles(directory="/root/Ollama_X_SpacY_Frontend/Frontend", html=True), name="static")
 
 # Add CORS middleware
 app.add_middleware(
