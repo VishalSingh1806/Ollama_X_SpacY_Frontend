@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Directory Paths
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_FILES_DIR = CURRENT_DIR  # Use the current directory for static files (index.html, etc.)
-DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")
+STATIC_FILES_DIR = os.path.join(CURRENT_DIR)  # Serve static files from the current directory
+DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")  # Ensure DB path is correct
 
 # Mount static files (Frontend)
 app.mount("/", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
@@ -92,7 +92,10 @@ def search_sections(query: str):
     try:
         conn = connect_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, content FROM Sections WHERE content LIKE ? LIMIT 10;", (f"%{query}%",))
+        cursor.execute(
+            "SELECT id, content FROM Sections WHERE content LIKE ? LIMIT 10;",
+            (f"%{query}%",),
+        )
         results = cursor.fetchall()
         conn.close()
 
@@ -150,7 +153,10 @@ async def add_to_validated_qa(request: Request):
         embedding = compute_embedding(question).tobytes()
         conn = connect_db()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO ValidatedQA (question, answer, embedding) VALUES (?, ?, ?)", (question, answer, embedding))
+        cursor.execute(
+            "INSERT INTO ValidatedQA (question, answer, embedding) VALUES (?, ?, ?)",
+            (question, answer, embedding),
+        )
         conn.commit()
         conn.close()
 
