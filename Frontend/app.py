@@ -177,4 +177,8 @@ def search_sections(query: str):
 @app.on_event("startup")
 async def list_routes():
     for route in app.routes:
-        print(f"Path: {route.path}, Methods: {route.methods}")
+        if hasattr(route, "methods"):  # Check if the route has the "methods" attribute
+            print(f"Path: {route.path}, Methods: {route.methods}")
+        else:
+            print(f"Path: {route.path}, Type: {type(route).__name__}")
+
