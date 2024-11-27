@@ -1,3 +1,5 @@
+const BASE_URL = "http://139.59.85.107:8000"; // Replace with your backend's URL
+
 // Toggle Chat Window
 function toggleChat() {
     const chatWindow = document.getElementById("chatWindow");
@@ -5,18 +7,16 @@ function toggleChat() {
         chatWindow.style.display = "none";
     } else {
         chatWindow.style.display = "block";
-
         const chatContent = document.getElementById("chatContent");
+
         if (chatContent.children.length === 0) {
             const welcomeMessage = document.createElement("div");
             welcomeMessage.className = "bot-message fade-in";
             welcomeMessage.innerText = "Hello! How can I assist you today?";
             chatContent.appendChild(welcomeMessage);
-            chatContent.scrollTop = chatContent.scrollHeight;
         }
     }
 }
-
 
 // Handle Enter Key
 function checkEnter(event) {
@@ -38,10 +38,9 @@ async function sendMessage() {
         typingIndicator.className = "typing-indicator";
         typingIndicator.innerText = "Bot is typing...";
         chatContent.appendChild(typingIndicator);
-        chatContent.scrollTop = chatContent.scrollHeight;
 
         try {
-            const response = await fetch("http://139.59.85.107:8000/chat", {
+            const response = await fetch(`${BASE_URL}/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: userMessage }),
@@ -66,7 +65,6 @@ async function sendMessage() {
         }
     }
 }
-
 
 // Add Message to Chat
 function addMessageToChat(message, className) {
