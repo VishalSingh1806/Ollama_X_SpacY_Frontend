@@ -174,11 +174,12 @@ def search_sections(query: str):
         logging.error(f"Database error: {e}")
         return []
 
+
 @app.on_event("startup")
 async def list_routes():
+    """List all available routes on server startup."""
     for route in app.routes:
-        if hasattr(route, "methods"):  # Check if the route has the "methods" attribute
+        if isinstance(route, StaticFiles):
+            print(f"Path: {route.path}, Type: Mount")
+        elif hasattr(route, "methods"):
             print(f"Path: {route.path}, Methods: {route.methods}")
-        else:
-            print(f"Path: {route.path}, Type: {type(route).__name__}")
-
