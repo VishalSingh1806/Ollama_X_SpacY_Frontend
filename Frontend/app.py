@@ -29,7 +29,7 @@ except Exception as e:
     raise RuntimeError(f"Failed to load Sentence-BERT model: {e}")
 
 # Constants
-DB_PATH = "D:\Ollama X SpacY\knowledge_base.db"  # SQLite database path
+DB_PATH = "/root/Ollama_X_SpacY_Frontend/Frontend/knowledge_base.db" # SQLite database path
 SIMILARITY_THRESHOLD = 0.7  # Threshold for similarity matching
 
 
