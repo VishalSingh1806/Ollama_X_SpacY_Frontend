@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import sqlite3
@@ -17,11 +18,20 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Directory Paths
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_FILES_DIR = os.path.join(CURRENT_DIR)  # Serve static files from the current directory
-DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")  # Ensure DB path is correct
+STATIC_FILES_DIR = os.path.join(CURRENT_DIR)  # Directory for static files
+DB_PATH = os.path.join(CURRENT_DIR, "knowledge_base.db")  # Path to SQLite database
 
-# Mount static files (Frontend)
-app.mount("/", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
+# Mount static files under /static
+app.mount("/static", StaticFiles(directory=STATIC_FILES_DIR), name="static")
+
+# Serve `index.html` for root route
+@app.get("/")
+async def read_root():
+    """Serve the index.html file."""
+    index_file = os.path.join(STATIC_FILES_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
 # Add CORS middleware
 app.add_middleware(
