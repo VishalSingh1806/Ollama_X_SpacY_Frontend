@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Mount static files (Frontend)
 STATIC_FILES_DIR = "/root/Ollama_X_SpacY_Frontend/Frontend"
-app.mount("/", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_FILES_DIR, html=True), name="static")
 
 # Add CORS middleware
 app.add_middleware(
@@ -54,6 +54,50 @@ def compute_embedding(text):
     return model.encode(text).reshape(1, -1)
 
 
+def query_validated_qa(user_embedding):
+    """Query the ValidatedQA table for the best match."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT question, answer, embedding FROM ValidatedQA")
+        rows = cursor.fetchall()
+
+        max_similarity = 0.0
+        best_answer = None
+
+        for _, db_answer, db_embedding in rows:
+            db_embedding_array = np.frombuffer(db_embedding, dtype=np.float32).reshape(
+                1, -1
+            )
+            similarity = cosine_similarity(user_embedding, db_embedding_array)[0][0]
+            if similarity > max_similarity:
+                max_similarity = similarity
+                best_answer = db_answer
+
+        conn.close()
+        if max_similarity >= SIMILARITY_THRESHOLD:
+            return best_answer, float(max_similarity)
+        return None, 0.0
+    except sqlite3.Error as e:
+        logging.error(f"Database query error: {e}")
+        return None, 0.0
+
+
+def search_sections(query: str):
+    """Search for terms in the sections table."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, content FROM Sections WHERE content LIKE ? LIMIT 10;", (f"%{query}%",))
+        results = cursor.fetchall()
+        conn.close()
+
+        return [{"id": row[0], "content": row[1]} for row in results]
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+        return []
+
+
 # --- API Endpoints ---
 @app.post("/chat")
 async def chat_endpoint(request: Request):
@@ -65,13 +109,9 @@ async def chat_endpoint(request: Request):
         if not question:
             raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-        # Generate embedding for user query
         user_embedding = compute_embedding(question)
-
-        # Query the database for the best match
         answer, confidence = query_validated_qa(user_embedding)
 
-        # Fallback: Suggest related sections if no valid match is found
         if not answer:
             related_sections = search_sections(question)
             return {
@@ -103,7 +143,6 @@ async def add_to_validated_qa(request: Request):
         if not question or not answer:
             raise HTTPException(status_code=400, detail="Both question and answer are required.")
 
-        # Compute embedding and add to the database
         embedding = compute_embedding(question).tobytes()
         conn = connect_db()
         cursor = conn.cursor()
@@ -130,56 +169,15 @@ def list_sections():
         return {"sections": [{"id": sec[0], "content": sec[1]} for sec in sections]}
     except sqlite3.Error as e:
         logging.error(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail="Database Error")
-
-
-def query_validated_qa(user_embedding):
-    """Query the ValidatedQA table for the best match."""
-    try:
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT question, answer, embedding FROM ValidatedQA")
-        rows = cursor.fetchall()
-
-        max_similarity = 0.0
-        best_answer = None
-
-        for _, db_answer, db_embedding in rows:
-            db_embedding_array = np.frombuffer(db_embedding, dtype=np.float32).reshape(1, -1)
-            similarity = cosine_similarity(user_embedding, db_embedding_array)[0][0]
-            if similarity > max_similarity:
-                max_similarity = similarity
-                best_answer = db_answer
-
-        conn.close()
-        if max_similarity >= SIMILARITY_THRESHOLD:
-            return best_answer, float(max_similarity)
-        return None, 0.0
-    except sqlite3.Error as e:
-        logging.error(f"Database query error: {e}")
-        return None, 0.0
-
-
-def search_sections(query: str):
-    """Search for terms in the sections table."""
-    try:
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, content FROM Sections WHERE content LIKE ? LIMIT 10;", (f"%{query}%",))
-        results = cursor.fetchall()
-        conn.close()
-
-        return [{"id": row[0], "content": row[1]} for row in results]
-    except sqlite3.Error as e:
-        logging.error(f"Database error: {e}")
-        return []
+        raise HTTPException(status_code=500, detail="Database Error"}
 
 
 @app.on_event("startup")
 async def list_routes():
-    """List all available routes on server startup."""
+    """Log all routes on startup."""
     for route in app.routes:
-        if isinstance(route, StaticFiles):
-            print(f"Path: {route.path}, Type: Mount")
-        elif hasattr(route, "methods"):
+        if hasattr(route, "methods"):  # Check if the route has the "methods" attribute
             print(f"Path: {route.path}, Methods: {route.methods}")
+        else:
+            print(f"Path: {route.path}, Type: {type(route).__name__}")
+
