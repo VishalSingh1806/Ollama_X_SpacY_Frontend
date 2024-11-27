@@ -173,3 +173,8 @@ def search_sections(query: str):
     except sqlite3.Error as e:
         logging.error(f"Database error: {e}")
         return []
+
+@app.on_event("startup")
+async def list_routes():
+    for route in app.routes:
+        print(f"Path: {route.path}, Methods: {route.methods}")
