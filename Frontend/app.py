@@ -6,6 +6,10 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import logging
+from fastapi.staticfiles import StaticFiles
+
+# Mount the static files
+app.mount("/", StaticFiles(directory="/root/Ollama_X_SpacY_Frontend/Frontend", html=True), name="static")
 
 # Initialize FastAPI app
 app = FastAPI()
